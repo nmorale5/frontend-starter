@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { onBeforeMount, ref } from "vue";
+import { useUserStore } from "@/stores/user";
+import { storeToRefs } from "pinia";
+import { computed, onBeforeMount, ref } from "vue";
 import { fetchy } from "../../utils/fetchy";
 
 const props = defineProps(["content"]);
 const emit = defineEmits(["refreshVotes"]);
 const votes = ref<Array<Record<string, string>>>([]);
 const voteCount = ref<number>(0);
+const user = storeToRefs(useUserStore());
+const currentVote = computed(() => votes.value.filter((v) => v.user === user.currentUserId.value).at(0));
 
 const getVotesOnPost = async () => {
   let updatedVotes: Array<Record<string, string>>;
@@ -45,6 +49,22 @@ const removeVoteFromPost = async () => {
   await getVotesOnPost();
 };
 
+const onUpvoteClicked = async () => {
+  if (currentVote.value && currentVote.value.vote === "upvote") {
+    await removeVoteFromPost();
+  } else {
+    await upvotePost();
+  }
+};
+
+const onDownvoteClicked = async () => {
+  if (currentVote.value && currentVote.value.vote === "downvote") {
+    await removeVoteFromPost();
+  } else {
+    await downvotePost();
+  }
+};
+
 onBeforeMount(async () => {
   await getVotesOnPost();
 });
@@ -52,9 +72,8 @@ onBeforeMount(async () => {
 
 <template>
   <div>
-    <button @click="upvotePost">Upvote</button>
-    <button @click="downvotePost">Downvote</button>
-    <button @click="removeVoteFromPost">Remove Vote</button>
+    <button :style="{ color: currentVote && currentVote.vote == 'upvote' ? 'blue' : 'black' }" @click="onUpvoteClicked">▲</button>
+    <button :style="{ color: currentVote && currentVote.vote == 'downvote' ? 'blue' : 'black' }" @click="onDownvoteClicked">▼</button>
     <a>{{ voteCount }}</a>
   </div>
 </template>

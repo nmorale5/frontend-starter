@@ -1,9 +1,10 @@
-import DocCollection, { BaseDoc } from "../framework/doc";
 import { ObjectId } from "mongodb";
+import DocCollection, { BaseDoc } from "../framework/doc";
 import { NotFoundError } from "./errors";
 
 export interface ThreadParentDoc extends BaseDoc {
   content: ObjectId;
+  type: string; // type of thread e.g. "comment" or "trend"
 }
 
 export interface ThreadLinkDoc extends BaseDoc {
@@ -15,13 +16,11 @@ export default class ThreadConcept {
   public readonly threadParents = new DocCollection<ThreadParentDoc>("threadHeads");
   public readonly threads = new DocCollection<ThreadLinkDoc>("threads");
 
-  public async createThread(content: ObjectId) {
-    return await this.threadParents.createOne({ content: content as ObjectId });
+  public async createThread(content: ObjectId, type: string) {
+    return await this.threadParents.createOne({ content, type });
   }
 
   public async linkToThread(content: ObjectId, parent: ObjectId) {
-    console.log(content, typeof content);
-    console.log(parent, typeof parent);
     let msg: string;
     if (await this.threads.readOne({ content, parent })) {
       msg = "Already linked to thread!";
@@ -40,7 +39,11 @@ export default class ThreadConcept {
     return parent;
   }
 
-  public async getAllThreads() {
+  public async getAllThreads(type: string) {
+    return await this.threadParents.readMany({ type });
+  }
+
+  public async getAllPostsToThreads() {
     return await this.threads.readMany({});
   }
 
@@ -48,8 +51,8 @@ export default class ThreadConcept {
     return await this.threads.readMany({ parent });
   }
 
-  public async getAllThreadsFromCreator(creator: ObjectId) {
-    return await this.threadParents.readMany({ creator });
+  public async getAllThreadsFromCreator(creator: ObjectId, type?: string) {
+    return await this.threadParents.readMany(type === undefined ? { creator } : { creator, type });
   }
 
   public async removeFromThread(content: ObjectId, parent: ObjectId) {

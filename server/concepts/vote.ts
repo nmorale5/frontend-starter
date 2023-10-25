@@ -1,5 +1,5 @@
-import DocCollection, { BaseDoc } from "../framework/doc";
 import { ObjectId } from "mongodb";
+import DocCollection, { BaseDoc } from "../framework/doc";
 
 export interface VoteStateDoc extends BaseDoc {
   content: ObjectId;

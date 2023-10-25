@@ -76,6 +76,11 @@ class Routes {
     return { msg: created.msg, post: await Responses.post(created.post) };
   }
 
+  @Router.get("/posts/:_id")
+  async getPostById(_id: ObjectId) {
+    return (await Responses.posts(await Post.getPosts({ _id }))).at(0);
+  }
+
   @Router.patch("/posts/:_id")
   async updatePost(session: WebSessionDoc, _id: ObjectId, update: Partial<PostDoc>) {
     const user = WebSession.getUser(session);
@@ -164,23 +169,22 @@ class Routes {
     return await Vote.removeVote(content, user);
   }
 
-  // get all existing threads
+  // get all existing threads of the provided type
   @Router.get("/threads")
-  async getThreads() {
-    return await Thread.getAllThreads();
+  async getThreads(type: string) {
+    return await Thread.getAllThreads(type);
   }
 
   // get all posts from the given thread
   @Router.get("/threads/:thread")
   async getPostsFromThread(thread: ObjectId) {
-    console.log(thread, typeof thread);
     return await Thread.getAllFromThread(thread);
   }
 
   // create a new thread
   @Router.post("/threads")
-  async createThread(content: ObjectId) {
-    return await Thread.createThread(content);
+  async createThread(content: ObjectId, type: string) {
+    return await Thread.createThread(content, type);
   }
 
   // add the given post to the given thread
@@ -239,19 +243,11 @@ class Routes {
     const user = WebSession.getUser(session);
     const friends = await Friend.getFriends(user);
     // eslint-disable-next-line prettier/prettier
-    const following = friends.concat(
-      (await Friend.getRequests(user))
-        .filter(req => req.from.equals(user))
-        .map(req => req.to));
+    const following = friends.concat((await Friend.getRequests(user)).filter((req) => req.from.equals(user)).map((req) => req.to));
     // eslint-disable-next-line prettier/prettier
-    const postFromFolloweeNotifs =
-      (await Promise.all(following.map(Post.getByAuthor))).flat();
+    const postFromFolloweeNotifs = (await Promise.all(following.map(Post.getByAuthor))).flat();
     // eslint-disable-next-line prettier/prettier
-    const commentOnMyPostNotifs =
-      (await Promise.all((await Post.getByAuthor(user))
-        .map(async (post) =>
-          await Thread.getAllFromThread(post._id))))
-        .flat();
+    const commentOnMyPostNotifs = (await Promise.all((await Post.getByAuthor(user)).map(async (post) => await Thread.getAllFromThread(post._id)))).flat();
     return {
       commentOnMyPostNotifs,
       postFromFolloweeNotifs,
@@ -268,16 +264,25 @@ class Routes {
     };
   }
 
-  // determine whether the given content is still active, or if it expired
-  @Router.get("/timeout/:content")
-  async isActive(content: ObjectId) {
-    return await Timeout.isActive(content);
+  // Get all currently active deadlines that have been created
+  @Router.get("/timeout/active")
+  async getAllActiveDeadlines() {
+    return await Timeout.getAllDeadlines("active");
   }
 
-  // sets a timeout for duration seconds in the future
+  // determine whether the given content is still active, or if it expired
+  @Router.get("/timeout/:content")
+  async getTimeoutData(content: ObjectId) {
+    return {
+      active: await Timeout.isActive(content),
+      deadline: await Timeout.getDeadline(content),
+    };
+  }
+
+  // sets a timeout for duration days in the future
   @Router.post("/timeout/:content/:duration")
   async setTimeoutForDuration(content: ObjectId, duration: number) {
-    const deadline = new Date(new Date().getTime() + duration * 1000);
+    const deadline = new Date(new Date().getTime() + duration * 24 * 60 * 60 * 1000);
     return await Timeout.setTimeout(content, deadline);
   }
 }
